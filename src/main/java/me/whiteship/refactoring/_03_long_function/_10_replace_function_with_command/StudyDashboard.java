@@ -5,10 +5,7 @@ import org.kohsuke.github.GHIssueComment;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GitHub;
 
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -18,6 +15,7 @@ import java.util.concurrent.Executors;
 public class StudyDashboard {
 
     private final int totalNumberOfEvents;
+    private ExecutorService executorService = Executors.newFixedThreadPool(8);
 
     public StudyDashboard(int totalNumberOfEvents) {
         this.totalNumberOfEvents = totalNumberOfEvents;
@@ -26,6 +24,52 @@ public class StudyDashboard {
     public static void main(String[] args) throws IOException, InterruptedException {
         StudyDashboard studyDashboard = new StudyDashboard(15);
         studyDashboard.print();
+    }
+
+    private void print() throws IOException, InterruptedException {
+        GHRepository repository = getGhRepository();
+
+        List<Participant> participants = new CopyOnWriteArrayList<>();
+        CountDownLatch latch = new CountDownLatch(totalNumberOfEvents);
+
+        for (int index = 1 ; index <= totalNumberOfEvents ; index++) {
+            int eventId = index;
+            executorService.execute(() -> runProcess(repository, participants, latch, eventId));
+        }
+
+        latch.await();
+        executorService.shutdown();
+
+        new StudyPrinter(totalNumberOfEvents).execute(participants);
+    }
+
+    private void runProcess(GHRepository repository, List<Participant> participants, CountDownLatch latch, int eventId) {
+        try {
+            List<GHIssueComment> comments = getGhIssueComments(repository, eventId);
+            setHomeworkDon(participants, eventId, comments);
+            latch.countDown();
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    private void setHomeworkDon(List<Participant> participants, int eventId, List<GHIssueComment> comments) {
+        for (GHIssueComment comment : comments) {
+            Participant participant = findParticipant(comment.getUserName(), participants);
+            participant.setHomeworkDone(eventId);
+        }
+    }
+
+    private static List<GHIssueComment> getGhIssueComments(GHRepository repository, int eventId) throws IOException {
+        GHIssue issue = repository.getIssue(eventId);
+        List<GHIssueComment> comments = issue.getComments();
+        return comments;
+    }
+
+    private static GHRepository getGhRepository() throws IOException {
+        GitHub gitHub = GitHub.connect();
+        GHRepository repository = gitHub.getRepository("whiteship/live-study");
+        return repository;
     }
 
     private Participant findParticipant(String username, List<Participant> participants) {
@@ -39,88 +83,10 @@ public class StudyDashboard {
         return participant;
     }
 
-    private void print() throws IOException, InterruptedException {
-        GitHub gitHub = GitHub.connect();
-        GHRepository repository = gitHub.getRepository("whiteship/live-study");
-        List<Participant> participants = new CopyOnWriteArrayList<>();
 
-        ExecutorService service = Executors.newFixedThreadPool(8);
-        CountDownLatch latch = new CountDownLatch(totalNumberOfEvents);
 
-        for (int index = 1 ; index <= totalNumberOfEvents ; index++) {
-            int eventId = index;
-            service.execute(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        GHIssue issue = repository.getIssue(eventId);
-                        List<GHIssueComment> comments = issue.getComments();
 
-                        for (GHIssueComment comment : comments) {
-                            Participant participant = findParticipant(comment.getUserName(), participants);
-                            participant.setHomeworkDone(eventId);
-                        }
 
-                        latch.countDown();
-                    } catch (IOException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                }
-            });
-        }
 
-        latch.await();
-        service.shutdown();
-
-        try (FileWriter fileWriter = new FileWriter("participants.md");
-            PrintWriter writer = new PrintWriter(fileWriter)) {
-            participants.sort(Comparator.comparing(Participant::username));
-
-            writer.print(header(participants.size()));
-
-            participants.forEach(p -> {
-                String markdownForHomework = getMarkdownForParticipant(p);
-                writer.print(markdownForHomework);
-            });
-        }
-    }
-
-    private String getMarkdownForParticipant(Participant p) {
-        return String.format("| %s %s | %.2f%% |\n", p.username(), checkMark(p, this.totalNumberOfEvents),
-                p.getRate(this.totalNumberOfEvents));
-    }
-
-    /**
-     * | 참여자 (420) | 1주차 | 2주차 | 3주차 | 참석율 |
-     * | --- | --- | --- | --- | --- |
-     */
-    private String header(int totalNumberOfParticipants) {
-        StringBuilder header = new StringBuilder(String.format("| 참여자 (%d) |", totalNumberOfParticipants));
-
-        for (int index = 1; index <= this.totalNumberOfEvents; index++) {
-            header.append(String.format(" %d주차 |", index));
-        }
-        header.append(" 참석율 |\n");
-
-        header.append("| --- ".repeat(Math.max(0, this.totalNumberOfEvents + 2)));
-        header.append("|\n");
-
-        return header.toString();
-    }
-
-    /**
-     * |:white_check_mark:|:white_check_mark:|:white_check_mark:|:x:|
-     */
-    private String checkMark(Participant p, int totalEvents) {
-        StringBuilder line = new StringBuilder();
-        for (int i = 1 ; i <= totalEvents ; i++) {
-            if(p.homework().containsKey(i) && p.homework().get(i)) {
-                line.append("|:white_check_mark:");
-            } else {
-                line.append("|:x:");
-            }
-        }
-        return line.toString();
-    }
 
 }
