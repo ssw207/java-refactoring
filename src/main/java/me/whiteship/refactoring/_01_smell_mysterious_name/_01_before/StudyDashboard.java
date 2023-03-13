@@ -7,7 +7,6 @@ import org.kohsuke.github.GitHub;
 
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class StudyDashboard {
@@ -16,9 +15,18 @@ public class StudyDashboard {
 
     private Set<String> reviews = new HashSet<>();
 
-    private void studyReviews(GHIssue issue) throws IOException {
-        List<GHIssueComment> comments = issue.getComments();
-        for (GHIssueComment comment : comments) {
+    /**
+     * 깃허브 이슈 리뷰 작성자 이름과 내용을 읽어온다.
+     * - 동작을 주석으로 적고 주석을 기반으로 메서드명을 정한다.
+     *
+     * @throws IOException
+     */
+    private void loadReviews() throws IOException {
+        GitHub gitHub = GitHub.connect();
+        GHRepository repository = gitHub.getRepository("whiteship/live-study");
+        GHIssue issue = repository.getIssue(30);
+
+        for (GHIssueComment comment : issue.getComments()) {
             usernames.add(comment.getUserName());
             reviews.add(comment.getBody());
         }
@@ -33,12 +41,10 @@ public class StudyDashboard {
     }
 
     public static void main(String[] args) throws IOException {
-        GitHub gitHub = GitHub.connect();
-        GHRepository repository = gitHub.getRepository("whiteship/live-study");
-        GHIssue issue = repository.getIssue(30);
+
 
         StudyDashboard studyDashboard = new StudyDashboard();
-        studyDashboard.studyReviews(issue);
+        studyDashboard.loadReviews();
         studyDashboard.getUsernames().forEach(System.out::println);
         studyDashboard.getReviews().forEach(System.out::println);
     }
