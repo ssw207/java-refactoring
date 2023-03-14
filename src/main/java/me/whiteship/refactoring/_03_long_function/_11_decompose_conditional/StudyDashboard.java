@@ -62,15 +62,29 @@ public class StudyDashboard {
     }
 
     private Participant findParticipant(String username, List<Participant> participants) {
-        Participant participant;
-        if (participants.stream().noneMatch(p -> p.username().equals(username))) {
-            participant = new Participant(username);
-            participants.add(participant);
-        } else {
-            participant = participants.stream().filter(p -> p.username().equals(username)).findFirst().orElseThrow();
-        }
+        return isNewParticipant(username, participants) ? // 삼항연산자를 쓰는게 좋을까?
+            createParticipant(username, participants) :
+            findExistsParticipant(username, participants);
+    }
 
+    // 참석자를 생성하고 참석자 리스트에 넣는 동작을한다.
+    // 생성과 리스트 추가라는 행위를 하고 있지만 참석자가 추가되면 참석자 명단에 들어가는게 자연스럽기 때문에 참석자 생성으로만 메서드명을 짓는다.
+    private Participant createParticipant(String username, List<Participant> participants) {
+        Participant participant = new Participant(username);
+        participants.add(participant);
         return participant;
+    }
+
+    // 이름과 일치하는 첫번째 참석자를 찾고 없으면 예외를 던진다.
+    // findFirst는 처음 대상을 찾으면 멈축기 위한 목적이므로 첫번째에는 큰 의미가 없다. 없으면 예외를 던지므로 반드시 있어야한다.
+    // 따라서 존재하는 참석자 찾기가 적절하다.
+    private Participant findExistsParticipant(String username, List<Participant> participants) {
+        return participants.stream().filter(p -> p.username().equals(username)).findFirst().orElseThrow();
+    }
+
+    //참석자의 이름을판한다는 행위를 하고 있더라도 이 행위를 하는 이유가 신규 참석자인지 판단하기 위함이기 때문에 메서드의 이름을 심규참석자 판단으로 짓는다.
+    private boolean isNewParticipant(String username, List<Participant> participants) {
+        return participants.stream().noneMatch(p -> p.username().equals(username));
     }
 
 }
