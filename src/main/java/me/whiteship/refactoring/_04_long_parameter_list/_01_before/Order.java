@@ -13,11 +13,15 @@ public class Order {
 
     public double finalPrice() {
         double basePrice = this.quantity * this.itemPrice;
-        int discountLevel = this.quantity > 100 ? 2 : 1;
-        return this.discountedPrice(basePrice, discountLevel);
+        return this.discountedPrice(basePrice);
+    }
+    
+    private int discountLevel() {
+        return this.quantity > 100 ? 2 : 1;
     }
 
-    private double discountedPrice(double basePrice, int discountLevel) {
-        return discountLevel == 2 ? basePrice * 0.9 : basePrice * 0.95;
+    // 파라미터로 전달하던 값을 메서드로 추출후 메서드 내에서 조회한다
+    private double discountedPrice(double basePrice) {
+        return discountLevel() == 2 ? basePrice * 0.9 : basePrice * 0.95;
     }
 }
