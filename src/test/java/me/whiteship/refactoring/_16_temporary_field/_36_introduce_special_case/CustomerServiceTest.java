@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CustomerServiceTest {
 
     CustomerService customerService = new CustomerService();
-    Customer unknown = new Customer("unknown", null, null);
+    Customer unknown = new UnkownCustomer();
 
     BillingPlan keesunBillingPlan = new BillingPlan();
     Customer keesun = new Customer("keesun", keesunBillingPlan, new PaymentHistory(1));
